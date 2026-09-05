@@ -52,7 +52,14 @@ jobs:
       # what permissions the workflow declares. Pages has to be switched on once by
       # hand: Settings -> Pages -> Source: GitHub Actions. After that this step just
       # reads the existing site config and everything is automatic.
+      #
+      # `continue-on-error` keeps the build job green (and the listing artifact
+      # published) even before that manual step is done. Nothing later in this
+      # job consumes this step's outputs, so a failure here has no effect on the
+      # artifact we upload — only the `deploy` job actually needs Pages enabled,
+      # and it will start succeeding once Settings -> Pages is configured.
       - uses: actions/configure-pages@v5
+        continue-on-error: true
       - uses: actions/upload-pages-artifact@v3
         with:
           path: _site
