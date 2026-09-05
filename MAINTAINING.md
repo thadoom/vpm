@@ -19,8 +19,12 @@ listing.config.json            listing name / id / author
 1. Push to `main`.
 2. Settings → Actions → General → Workflow permissions → **Read and write**.
    Without this the release workflow cannot create releases.
+3. Settings → Pages → Source → **GitHub Actions**.
 
-Pages enables itself: `listing.yml` passes `enablement: true` to `actions/configure-pages`.
+Step 3 cannot be automated. `GITHUB_TOKEN` is not allowed to create a Pages site: the API
+answers 403 "Resource not accessible by integration" regardless of the permissions the workflow
+declares, so `actions/configure-pages` is deliberately used without `enablement: true`. Switch
+Pages on once by hand and every run after that is automatic.
 
 ---
 
