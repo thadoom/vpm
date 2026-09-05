@@ -1,0 +1,81 @@
+name: Release
+
+# Push a tag that matches the version in package.json and this does the rest.
+#
+#   git tag v1.0.1 && git push origin v1.0.1
+#
+# Nothing here is hardcoded to a username or a repo name — it all comes from the
+# GitHub context, so this works unchanged in whatever repo you put it in.
+
+on:
+  push:
+    tags: [ 'v*' ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  PACKAGE_PATH: Packages/com.thadoom.lucent
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Read package metadata
+        id: meta
+        run: |
+          NAME=$(jq -r .name "$PACKAGE_PATH/package.json")
+          VERSION=$(jq -r .version "$PACKAGE_PATH/package.json")
+          echo "name=$NAME"        >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION"  >> "$GITHUB_OUTPUT"
+          echo "zip=$NAME-$VERSION.zip" >> "$GITHUB_OUTPUT"
+          echo "tag=v$VERSION"     >> "$GITHUB_OUTPUT"
+
+      - name: Refuse a tag that disagrees with package.json
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          TAG_VERSION="${GITHUB_REF#refs/tags/v}"
+          if [ "$TAG_VERSION" != "${{ steps.meta.outputs.version }}" ]; then
+            echo "::error::tag v$TAG_VERSION does not match package.json version ${{ steps.meta.outputs.version }}"
+            exit 1
+          fi
+
+      - name: Refuse a version that already exists
+        run: |
+          if gh release view "${{ steps.meta.outputs.tag }}" >/dev/null 2>&1; then
+            echo "::error::${{ steps.meta.outputs.tag }} is already released. A published version is immutable — bump the version instead."
+            exit 1
+          fi
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+      - name: Zip the package with package.json at the zip root
+        run: |
+          cd "$PACKAGE_PATH"
+          zip -r "$GITHUB_WORKSPACE/${{ steps.meta.outputs.zip }}" . \
+            -x '.*' -x '*/.*' -x '*.meta.bak'
+          cd "$GITHUB_WORKSPACE"
+          unzip -l "${{ steps.meta.outputs.zip }}"
+
+      - name: Build the release manifest
+        run: |
+          python3 Tools/make_release_manifest.py \
+            --package "$PACKAGE_PATH" \
+            --zip "${{ steps.meta.outputs.zip }}" \
+            --repo "${{ github.repository }}" \
+            --tag "${{ steps.meta.outputs.tag }}" \
+            --pages-url "https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}" \
+            --out package.json
+
+      - name: Publish the release
+        run: |
+          gh release create "${{ steps.meta.outputs.tag }}" \
+            --title "${{ steps.meta.outputs.name }} ${{ steps.meta.outputs.version }}" \
+            --notes-file "$PACKAGE_PATH/CHANGELOG.md" \
+            "${{ steps.meta.outputs.zip }}" \
+            "package.json"
+        env:
+          GH_TOKEN: ${{ github.token }}

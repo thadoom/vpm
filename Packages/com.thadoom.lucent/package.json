@@ -1,0 +1,23 @@
+{
+  "name": "com.thadoom.lucent",
+  "displayName": "Lucent Optimizer",
+  "version": "1.0.0",
+  "unity": "2022.3",
+  "description": "Quality-first texture & mesh optimizer for VRChat PC avatars and worlds. Stops Unity from silently downscaling 4K textures, upgrades every texture to the best-looking format that fits its data, and only shrinks what is mathematically invisible.",
+  "author": {
+    "name": "thadoom"
+  },
+  "license": "MIT",
+  "keywords": [
+    "vrchat",
+    "optimization",
+    "texture",
+    "mesh",
+    "vram"
+  ],
+  "vpmDependencies": {},
+  "legacyFolders": {
+    "Assets/Lucent": ""
+  },
+  "hideInEditor": false
+}

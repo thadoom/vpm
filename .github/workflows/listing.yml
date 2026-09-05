@@ -1,0 +1,70 @@
+name: Build listing
+
+# Regenerates index.json from the repo's releases and publishes it to GitHub Pages.
+# Runs after every release, on every push to main, and on demand.
+
+on:
+  release:
+    types: [ published ]
+  push:
+    branches: [ main ]
+    paths:
+      - 'listing.config.json'
+      - 'Website/**'
+      - 'Tools/build_listing.py'
+      - '.github/workflows/listing.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Never let two Pages deploys race. Don't cancel a run in progress — a half-deployed
+# listing is a listing your users can't install from.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build index.json from the releases
+        run: |
+          python3 Tools/build_listing.py \
+            --repo "${{ github.repository }}" \
+            --pages-url "https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}" \
+            --out _site
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+
+      - name: Add the landing page
+        run: |
+          cp -r Website/. _site/ 2>/dev/null || true
+          cp Packages/com.thadoom.lucent/README.md _site/README.md 2>/dev/null || true
+          ls -la _site
+
+      # enablement: turns GitHub Pages on via the API if it isn't already,
+      # so nobody has to click through Settings -> Pages first.
+      - uses: actions/configure-pages@v5
+        with:
+          enablement: true
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
+
+      - name: Print the URL to paste into VCC
+        run: echo "::notice::Add this repository in VCC -> ${{ steps.deployment.outputs.page_url }}index.json"
